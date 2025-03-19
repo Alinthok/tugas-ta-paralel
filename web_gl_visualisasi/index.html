@@ -1,0 +1,353 @@
+<canvas id="c" width="600" height="400" style="border: 1px solid blue;"></canvas>
+<div>fps: <span id="fps"></span></div>
+<button onclick="loadCSV()">Load CSV</button>
+
+<div>
+  <input type="range" id="xSpacing" name="xSpacing" min="0" max="50" value="0" step="0.5"/>
+  <label for="xSpacing">X Spacing</label>
+</div>
+
+<div>
+  <input type="range" id="ySpacing" name="ySpacing" min="0" max="50" value="0" step="0.5"/>
+  <label for="ySpacing">Y Spacing</label>
+</div>
+
+<div>
+  <input type="range" id="zSpacing" name="zSpacing" min="0" max="50" value="0" step="0.5"/>
+  <label for="zSpacing">Z Spacing</label>
+</div>
+
+<!--<div>
+  <input type="checkbox" id="hideMask" name="hideMask" onclick="hideMask(this)">
+  <label for="hideMask">Hide Mask</label><br>
+</div>-->
+
+<div>
+  <input type="radio" id="orbit" name="cameraMoveOption" onclick="changeRadio(this);" value="orbit" checked/>
+  <label for="cameraMoveOption">Orbit</label>
+
+  <input type="radio" id="pan" name="cameraMoveOption" onclick="changeRadio(this);" value="pan" />
+  <label for="cameraMoveOption">Pan</label>
+</div>
+<canvas id="info"></canvas>
+
+<style>
+  html, body {margin: 10px; height: 100%; overflow: hidden}
+</style>
+
+<script src="symbols.js"></script>
+<script src="gl-matrix-min.js"></script>
+<script src="renderer_reguler.js"></script>
+<script>
+  var canvas = document.querySelector("#c");
+  var gl = canvas.getContext("webgl2", {stencil: true});
+    if (!gl) 
+    {
+      alert("webgl2notsupported");
+    }
+
+  canvas.addEventListener("mousedown", onMouseDown, false);
+  canvas.addEventListener("mousemove", onMouseMove, false);
+  document.addEventListener("mouseup", onMouseUp, false);
+  document.addEventListener("wheel", onMouseScroll, false);
+
+  var nx = 0; var ny = 0; var nz = 0;
+  var count = nx*ny*nz
+
+  var mousedown = false;
+  const delta = 6;
+  let startX;
+  let startY;
+
+  let xAngle = 60;
+  let yAngle = 30;
+
+  let radius = 3;
+
+  let lookAt = glMatrix.vec3.fromValues(0, 0, 0)
+  let camPos = glMatrix.vec3.fromValues(0, 0, 0)
+
+  let mouseX; let mouseY
+  var xAngleStart; var yAngleStart; var lookAtStart; var camPosStart;
+
+  function updateCamPos() {
+    if (yAngle > 89) { yAngle = 89 }
+    if (yAngle < -89) { yAngle = -89 }
+    var circleAngle = glMatrix.vec3.fromValues(Math.cos(xAngle*Math.PI/180)*Math.cos(yAngle*Math.PI/180)*radius, Math.sin(yAngle*Math.PI/180)*radius, Math.sin(xAngle*Math.PI/180)*Math.cos(yAngle*Math.PI/180)*radius)
+    glMatrix.vec3.add(camPos, lookAt, circleAngle)
+  }
+
+  function onMouseScroll(event) {
+    radius += event.deltaY * -0.05
+    updateCamPos()
+    renderer.updateView(camPos, lookAt)
+  }
+
+  function onMouseDown(event)
+  {
+    mousedown = true
+    startX = event.pageX;
+    startY = event.pageY;
+    xAngleStart = xAngle;
+    yAngleStart = yAngle;
+    lookAtStart = [lookAt[0], lookAt[1], lookAt[2]]
+    camPosStart = [camPos[0], camPos[1], camPos[2]]
+  }
+
+  var rect = canvas.getBoundingClientRect();
+  function onMouseMove(event)
+  {
+    mouseX = event.clientX - rect.left
+    mouseY = event.clientY - rect.top
+
+    if (mousedown) {
+      const diffX = event.pageX - startX;
+      const diffY = event.pageY - startY;
+
+      if (Math.abs(diffX) > delta || Math.abs(diffY) > delta) {
+        if (cameraMoveOption == "orbit") {
+        xAngle = xAngleStart + diffX/10; yAngle = yAngleStart + diffY/10;
+        updateCamPos()
+        renderer.updateView(camPos, lookAt)
+        } else if (cameraMoveOption == "pan") {
+          panCamera(diffX, diffY)
+        }
+      }
+    }
+  }
+
+  function panCamera(diffX, diffY) {
+    var forward = glMatrix.vec3.create()
+    var a = glMatrix.vec3.create()
+    glMatrix.vec3.normalize(forward, glMatrix.vec3.sub(a, lookAt, camPos))
+    var right = glMatrix.vec3.create()
+    var b = glMatrix.vec3.create()
+    glMatrix.vec3.normalize(right, glMatrix.vec3.cross(b, glMatrix.vec3.fromValues(0, 1, 0), forward))
+    up = glMatrix.vec3.create()
+    glMatrix.vec3.cross(up, forward, right)
+
+    glMatrix.vec3.scaleAndAdd(lookAt, lookAtStart, up, diffY/10)
+    glMatrix.vec3.scaleAndAdd(lookAt, lookAt, right, diffX/10)
+    glMatrix.vec3.scaleAndAdd(camPos, camPosStart, up, diffY/10)
+    glMatrix.vec3.scaleAndAdd(camPos, camPos, right, diffX/10)
+    
+    renderer.updateView(camPos, lookAt)
+  }
+  
+  function onMouseUp(event)
+  {
+    mousedown = false
+    const diffX = event.pageX - startX;
+    const diffY = event.pageY - startY;
+
+    if (Math.abs(diffX) < delta && Math.abs(diffY) < delta) {
+      // Click
+    }
+  }
+
+  var renderer = new Renderer(gl);
+  renderer.init(gl);
+
+  var offsets = new Array(this.count*3)
+  var colors = new Array(this.count*3)
+
+  var i = 0
+  for (var x = 0; x < this.nx; x++) {
+    for (var y = 0; y < this.ny; y++) {
+      for (var z = 0; z < this.nz; z++) {
+          offsets[i+0] = x * 1
+          offsets[i+1] = y * 1
+          offsets[i+2] = z * 1
+
+          colors[i+0] = 1.0
+          colors[i+1] = 1.0
+          colors[i+2] = 0.0
+          i += 3
+      }
+    }
+  }
+
+  renderer.bindOffsets(offsets, colors)
+  renderer.setCamera()
+  updateCamPos()
+  renderer.updateView(camPos, lookAt)
+  renderer.setLineColor(1, 1, 1)
+  const fpsElem = document.querySelector("#fps");
+
+  let then = 0;
+  function render(now) {
+    now *= 0.001;                          // convert to seconds
+    const deltaTime = now - then;          // compute time since last frame
+    then = now;                            // remember time for next frame
+    const fps = 1 / deltaTime;             // compute frames per second
+    fpsElem.textContent = fps.toFixed(1); 
+    
+    renderer.refresh(gl);
+
+    renderer.drawLineXYZ(gl, -1, -1, -1)
+
+    renderer.drawCubeInstanced(gl, this.count);
+
+    requestAnimationFrame(render);
+  }
+
+requestAnimationFrame(render);
+
+async function loadCSV() {
+  let [fileHandle] = await window.showOpenFilePicker();
+  let fileData = await fileHandle.getFile();
+  let fileText = await fileData.text()
+  var data = fileText.split(','); // split by comma
+  for (var i = 0; i < data.length; i++) {
+      data[i] = parseFloat(data[i])
+  }
+
+  this.nz = data.pop()
+  this.ny = data.pop()
+  this.nx = data.pop()
+  
+  this.count = this.nx*this.ny*this.nz
+  
+  var max_min = findMaxMin(data)
+  
+  var max = max_min.max; 
+  var min = max_min.min;
+
+  var offsets = new Array(this.count*3)
+  var colors = new Array(this.count*3)
+
+  var i = 0
+
+  for (var x = 0; x < this.nx; x++) {
+    for (var y = 0; y < this.ny; y++) {
+      for (var z = 0; z < this.nz; z++) {
+          offsets[i+0] = x * (1+xs)
+          offsets[i+1] = y * (1+ys)
+          offsets[i+2] = z * (1+zs)
+
+          var c = [0, 0, 0];
+          if (data[x+(y*this.nx)+(z*this.nx*this.ny)] == 1.0) {c[0] = 1.0;}
+					else if (data[x+(y*this.nx)+(z*this.nx*this.ny)] == 0.0) {c[2] = 1.0;}
+					else {c = getValueBetweenTwoFixedColors((data[x+(y*this.nx)+(z*this.nx*this.ny)]-min)/(max-min));}
+
+          colors[i+0] = c[0]
+          colors[i+1] = c[1]
+          colors[i+2] = c[2]
+          i += 3
+      }
+    }
+  }
+
+  renderer.bindOffsets(offsets, colors)
+
+  showInfo(min, max)
+}
+
+function findMaxMin(data) {
+  var max = Number.MIN_VALUE
+  var min = Number.MAX_VALUE
+
+  for (var x = 1; x < this.nx-1; x++) {
+    for (var y = 1; y < this.ny-1; y++) {
+      for (var z = 1; z < this.nz-1; z++) {
+        var idx = x+(y*this.nx)+(z*this.nx*this.ny);
+        if (data[idx] > max) {
+            max = data[idx];
+        }
+        if (data[idx] < min) {
+            min = data[idx];
+        }
+      }
+    }
+  }
+  return { max:max, min:min }
+}
+
+function getValueBetweenTwoFixedColors(value)
+{
+  var aR = 0;   var aG = 0; var aB=1.0;  // RGB for our 1st color (blue in this case).
+  var bR = 1.0; var bG = 0; var bB=0;    // RGB for our 2nd color (red in this case).
+  
+  r   = (bR - aR) * value + aR;      // Evaluated as -255*value + 255.
+  g = (bG - aG) * value + aG;      // Evaluates as 0.
+  b  = (bB - aB) * value + aB;      // Evaluates as 255*value + 0.
+  return [r, g, b]
+}
+
+const inputx = document.querySelector("#xSpacing");
+var xs=0; var ys=0; var zs=0;
+inputx.addEventListener("input", (event) => {
+    xs = parseFloat(event.target.value);
+    updateSpacing()
+});
+const inputy = document.querySelector("#ySpacing");
+inputy.addEventListener("input", (event) => {
+    ys = parseFloat(event.target.value);
+    updateSpacing()
+});
+const inputz = document.querySelector("#zSpacing");
+inputz.addEventListener("input", (event) => {
+    zs = parseFloat(event.target.value);
+    updateSpacing()
+});
+
+function updateSpacing() {
+    /////////////////////////////////////////////////////////////////////
+    var offsets = new Array(this.count*3)
+    var colors = new Array(this.count*3)
+
+    var i = 0
+
+    for (var x = 0; x < this.nx; x++) {
+      for (var y = 0; y < this.ny; y++) {
+        for (var z = 0; z < this.nz; z++) {
+            offsets[i+0] = x * (1 + xs)
+            offsets[i+1] = y * (1 + ys)
+            offsets[i+2] = z * (1 + zs)
+            i += 3
+        }
+      }
+    }
+
+    renderer.bindOffsetOnly(offsets)
+    /////////////////////////////////////////////////////////////////////////
+}
+
+var cameraMoveOption = "orbit";
+
+function changeRadio(myRadio) {
+    cameraMoveOption = myRadio.value;
+}
+
+function hideMask(checkbox) {
+    if (checkbox.checked) {
+      
+    } else {
+
+    }
+}
+
+function showInfo(min, max) {
+    var infoCanvas = document.querySelector("#info");
+    var ctx = infoCanvas.getContext("2d");
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+
+    gradient.addColorStop(0, "blue");
+    gradient.addColorStop(1, "red");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 23, 200, 20);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "black";
+    ctx.font = "bold 18px serif";
+    ctx.fillText(String(min.toFixed(2)), 0, 60)
+    ctx.textAlign = "center";
+    ctx.fillText(String(((max+min)/2).toFixed(2)), 100, 20)
+    ctx.textAlign = "right";
+    ctx.fillText(String(max.toFixed(2)), 200, 60)
+}
+</script>
+
