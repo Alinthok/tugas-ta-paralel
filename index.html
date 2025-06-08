@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Visualisasi 3D</title>
+    <style>
+      body { margin: 0; }
+      #info {
+      text-align: center;
+      display:block;
+      }
+      #info-container {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 100;
+      display:block;
+      color: white;
+    }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BSn4q4q0.js"></script>
+  </head>
+  <body>
+    <canvas id="colorPalette" width="100" height="200" style="position: absolute; right: 10px; bottom: 10px;"></canvas>
+    <div id="info-container" style="display: flex; flex-direction: column-reverse; align-items: flex-start; text-align: left;">
+      <div id="info">Data not Loaded.</div>
+      <div id="d"></div>
+      <div id="t"></div>
+      <div id="dt"></div>
+      <div id="l"></div>
+      <div id="n"></div>
+      <div id="c0"></div>
+    </div>
+  </body>
+</html>
